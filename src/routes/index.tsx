@@ -22,15 +22,20 @@ export const Route = createFileRoute("/")({
 });
 
 const WEDDING = new Date("2027-02-14T18:00:00+05:30");
-const IST = { timeZone: "Asia/Kolkata" } as const;
 const EVENTS = [
   { name: "Mehendi", at: "2027-02-12T16:00:00+05:30", place: "Garden Courtyard" },
   { name: "Haldi", at: "2027-02-13T10:00:00+05:30", place: "Lotus Terrace" },
   { name: "Wedding", at: "2027-02-14T18:00:00+05:30", place: "The Grand Pavilion" },
   { name: "Reception", at: "2027-02-15T20:00:00+05:30", place: "The Grand Ballroom" },
 ];
-const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { ...IST, weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const fmtTime = (d: Date) => d.toLocaleTimeString("en-IN", { ...IST, hour: "numeric", minute: "2-digit" }) + " IST";
+// Fixed +05:30 shift, formatted by hand so server and phone always agree.
+const MON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const ist = (d: Date) => new Date(d.getTime() + 330 * 60000);
+const fmtDay = (d: Date) => { const x = ist(d); return `${x.getUTCDate()} ${MON[x.getUTCMonth()]} ${x.getUTCFullYear()}`; };
+const fmtWeekday = (d: Date) => DAY[ist(d).getUTCDay()];
+const fmtDate = (d: Date) => `${fmtWeekday(d)}, ${fmtDay(d)}`;
+const fmtTime = (d: Date) => { const x = ist(d); const h = x.getUTCHours(); return `${h % 12 || 12}:${String(x.getUTCMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"} IST`; };
 
 function Invite() {
   const [stage, setStage] = useState<"sealed" | "opening" | "revealed" | "done">("sealed");
@@ -149,13 +154,17 @@ function ScratchCard() {
     return () => { c.removeEventListener("pointerdown", dn); c.removeEventListener("pointermove", scratch); c.removeEventListener("pointerup", up); };
   }, []);
 
-  useEffect(() => { if (revealed) { const t = setTimeout(() => setGone(true), 700); return () => clearTimeout(t); } }, [revealed]);
+  useEffect(() => {
+    if (!revealed) return;
+    const t = setTimeout(() => setGone(true), 700);
+    return () => clearTimeout(t);
+  }, [revealed]);
 
   return (
     <div className="card-surface relative h-32 overflow-hidden">
       <div className="flex h-full flex-col items-center justify-center">
-        <p className="font-display text-3xl text-accent">{fmtDate(WEDDING).replace(/^\w+, /, "")}</p>
-        <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">{fmtDate(WEDDING).split(",")[0]} · {fmtTime(WEDDING)}</p>
+        <p className="font-display text-3xl text-accent">{fmtDay(WEDDING)}</p>
+        <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">{fmtWeekday(WEDDING)} · {fmtTime(WEDDING)}</p>
       </div>
       {!gone && (
         <canvas ref={canvas} tabIndex={0} role="button" aria-label="Scratch card. Press Enter to reveal the date"
